@@ -19,5 +19,6 @@ dependencies {
 // The one jar the image runs: local:///opt/flink/usrlib/job.jar
 tasks.shadowJar {
     archiveFileName = "job.jar"
+    manifest { attributes["Main-Class"] = "foundry.join.Join" }
     mergeServiceFiles()
 }
