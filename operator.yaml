@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://gitlab.com/foundry-platform/common/scripts/-/jobs/artifacts/main/raw/operator.schema.json?job=schema
 name: Join
 description: Joins packets with their Decode and Isp enrichments by guid (Flink, session windows).
 Runtime: flink
