@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-/** The Foundry section of appsettings.json, as scripts' deploy/render.py renders it for a flink processor. */
+/** The Foundry section of appsettings.json, as foundry-ci's pipeline/deploy/render.py renders it for a flink processor. */
 record Foundry(String pipeline, String processor, List<Kafka> inputs, Kafka output) {
 
     /** A Kafka of the manifest: its topic, allowed types and how to connect. */
