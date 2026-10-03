@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>foundry</groupId>
+  <artifactId>packetjoiner</artifactId>
+  <version>1.0</version>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <flink.version>2.2.1</flink.version>
+  </properties>
+
+  <dependencies>
+    <dependency> <!-- in the Flink image -->
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-streaming-java</artifactId>
+      <version>${flink.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-connector-base</artifactId>
+      <version>${flink.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-connector-kafka</artifactId>
+      <version>5.0.0-2.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.18.2</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- target/schemas/<Type>.json for ci/flink.yml to register. classNames must be operator.yaml's out
+           types (validators/processors/typecheck.py checks). -->
+      <plugin>
+        <groupId>com.github.victools</groupId>
+        <artifactId>jsonschema-maven-plugin</artifactId>
+        <version>4.38.0</version>
+        <executions>
+          <execution>
+            <goals><goal>generate</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <classNames>
+            <className>foundry.join.EnrichedPackets</className>
+          </classNames>
+          <schemaVersion>DRAFT_7</schemaVersion>
+          <schemaFilePath>${project.build.directory}/schemas</schemaFilePath>
+          <schemaFileName>{0}.json</schemaFileName>
+          <options>
+            <preset>PLAIN_JSON</preset>
+            <enabled>
+              <option>EXTRA_OPEN_API_FORMAT_VALUES</option>
+              <option>FORBIDDEN_ADDITIONAL_PROPERTIES_BY_DEFAULT</option>
+            </enabled>
+          </options>
+          <modules>
+            <module>
+              <name>Jackson</name>
+              <options><option>RESPECT_JSONPROPERTY_REQUIRED</option></options>
+            </module>
+          </modules>
+        </configuration>
+      </plugin>
+
+      <!-- The one jar the image runs: local:///opt/flink/usrlib/job.jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <finalName>job</finalName>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>foundry.join.Join</mainClass>
+                </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
