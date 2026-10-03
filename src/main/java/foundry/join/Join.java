@@ -30,7 +30,7 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
  * they survive restarts and deploys.
  */
 public final class Join {
-    static final String SCHEMA_HEADER = "foundry-schema"; // stamped by every processor on what it writes
+    static final String TYPE_HEADER = "foundry-type"; // stamped by every processor on what it writes
     static final String PACKET = "Packets", DECODE = "DecodeEnrichment", ISP = "IspEnrichment", OUT = "EnrichedPackets";
     static final Duration GAP = Duration.ofSeconds(10);
     static final ObjectMapper JSON = new ObjectMapper();
@@ -46,7 +46,7 @@ public final class Join {
                     .setTopics(in.topic())
                     .setGroupId(foundry.groupId())
                     .setStartingOffsets(OffsetsInitializer.latest()) // restored jobs resume from their checkpoint instead
-                    .setDeserializer(new Pieces(in.schemas().size() == 1 ? in.schemas().get(0) : null))
+                    .setDeserializer(new Pieces(in.types().size() == 1 ? in.types().get(0) : null))
                     .build();
             var stream = env.fromSource(source, WatermarkStrategy.noWatermarks(), in.name());
             pieces = pieces == null ? stream : pieces.union(stream);
@@ -67,7 +67,7 @@ public final class Join {
         env.execute(foundry.groupId());
     }
 
-    /** Kafka record -> Piece: the schema from its header (or the dataset's only schema), the guid from its JSON. */
+    /** Kafka record -> Piece: the type from its header (or the topic's only allowed type), the guid from its JSON. */
     static final class Pieces implements KafkaRecordDeserializationSchema<Piece> {
         private final String fallback;
 
@@ -77,11 +77,11 @@ public final class Join {
 
         @Override
         public void deserialize(ConsumerRecord<byte[], byte[]> record, Collector<Piece> out) {
-            var header = record.headers().lastHeader(SCHEMA_HEADER);
-            var schema = header != null ? new String(header.value(), StandardCharsets.UTF_8) : fallback;
+            var header = record.headers().lastHeader(TYPE_HEADER);
+            var type = header != null ? new String(header.value(), StandardCharsets.UTF_8) : fallback;
             try {
                 var guid = JSON.readTree(record.value()).path("guid").asText("");
-                if (schema != null && !guid.isEmpty()) out.collect(new Piece(guid, schema, new String(record.value(), StandardCharsets.UTF_8)));
+                if (type != null && !guid.isEmpty()) out.collect(new Piece(guid, type, new String(record.value(), StandardCharsets.UTF_8)));
             } catch (java.io.IOException e) {
                 // Not JSON: skip it, like the .NET processors skip bad messages.
             }
@@ -100,7 +100,7 @@ public final class Join {
             ObjectNode packet = null, decode = null, isp = null;
             for (var p : pieces) {
                 var node = (ObjectNode) JSON.readTree(p.json);
-                switch (p.schema) {
+                switch (p.type) {
                     case PACKET -> packet = node;
                     case DECODE -> decode = node;
                     case ISP -> isp = node;
@@ -115,11 +115,11 @@ public final class Join {
         }
     }
 
-    /** Piece -> Kafka record keyed by guid, with the schema header. */
+    /** Piece -> Kafka record keyed by guid, with the type header. */
     record Records(String topic) implements KafkaRecordSerializationSchema<Piece> {
         @Override
         public ProducerRecord<byte[], byte[]> serialize(Piece p, KafkaSinkContext context, Long timestamp) {
-            var headers = new RecordHeaders().add(SCHEMA_HEADER, p.schema.getBytes(StandardCharsets.UTF_8));
+            var headers = new RecordHeaders().add(TYPE_HEADER, p.type.getBytes(StandardCharsets.UTF_8));
             return new ProducerRecord<>(topic, null, null, p.guid.getBytes(StandardCharsets.UTF_8), p.json.getBytes(StandardCharsets.UTF_8), headers);
         }
     }

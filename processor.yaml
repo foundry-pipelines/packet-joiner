@@ -1,4 +1,6 @@
 name: Join
-in: [Packets, DecodeEnrichment, IspEnrichment]
-out: EnrichedPackets
 description: Joins packets with their Decode and Isp enrichments by guid (Flink, session windows).
+Runtime: flink
+
+in: [Packets, DecodeEnrichment, IspEnrichment]
+out: [EnrichedPackets]

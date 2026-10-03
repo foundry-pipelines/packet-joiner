@@ -8,32 +8,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-/** The Foundry section of appsettings.json, as manifest.py renders it for a flink processor. */
-record Foundry(String pipeline, String processor, List<DataSet> inputs, DataSet output) {
+/** The Foundry section of appsettings.json, as scripts' deploy/render.py renders it for a flink processor. */
+record Foundry(String pipeline, String processor, List<Kafka> inputs, Kafka output) {
 
-    /** A dataset: its topic, schemas and how to connect. */
-    record DataSet(String name, String topic, List<String> schemas, Properties kafka) {}
+    /** A Kafka of the manifest: its topic, allowed types and how to connect. */
+    record Kafka(String name, String topic, List<String> types, Properties kafka) {}
 
     static Foundry load(Path path) throws IOException {
         var f = new ObjectMapper().readTree(path.toFile()).get("Foundry");
-        var inputs = new ArrayList<DataSet>();
-        for (var ds : f.has("Inputs") ? f.get("Inputs") : List.of(f.get("Input"))) inputs.add(dataSet(ds));
-        return new Foundry(f.get("Pipeline").asText(), f.get("Processor").asText(), inputs, dataSet(f.get("Output")));
+        var inputs = new ArrayList<Kafka>();
+        for (var k : f.has("Inputs") ? f.get("Inputs") : List.of(f.get("Input"))) inputs.add(kafka(k));
+        return new Foundry(f.get("Pipeline").asText(), f.get("Processor").asText(), inputs, kafka(f.get("Output")));
     }
 
     String groupId() {
         return pipeline + "." + processor;
     }
 
-    private static DataSet dataSet(JsonNode ds) {
-        var schemas = new ArrayList<String>();
-        if (ds.has("DataSchemas")) ds.get("DataSchemas").forEach(s -> schemas.add(s.asText()));
-        else if (ds.hasNonNull("DataSchema") && !ds.get("DataSchema").asText().isEmpty()) schemas.add(ds.get("DataSchema").asText());
-        return new DataSet(ds.get("DataSet").asText(), ds.get("Topic").asText(), schemas, kafka(ds.get("ConnectionSettings")));
+    private static Kafka kafka(JsonNode k) {
+        var types = new ArrayList<String>();
+        k.path("AllowedTypes").forEach(t -> types.add(t.asText()));
+        return new Kafka(k.get("Kafka").asText(), k.get("Topic").asText(), types, connection(k.get("ConnectionSettings")));
     }
 
     // Credentials come from the environment, Secrets__<SecretRef>__Username/Password, like the .NET processors.
-    private static Properties kafka(JsonNode settings) {
+    private static Properties connection(JsonNode settings) {
         var props = new Properties();
         props.setProperty("bootstrap.servers", settings.get("Brokers").asText());
         if (settings.hasNonNull("SecurityProtocol")) props.setProperty("security.protocol", settings.get("SecurityProtocol").asText());
