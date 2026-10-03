@@ -8,8 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-/** The Foundry section of appsettings.json, as foundry-ci's pipeline/deploy/render.py renders it for a flink processor. */
-record Foundry(String pipeline, String processor, List<Kafka> inputs, Kafka output) {
+/** The Foundry section of appsettings.json, as foundry-ci's pipeline/deploy/render.py renders it for a flink operator. */
+record Foundry(String pipeline, String operator, List<Kafka> inputs, Kafka output) {
 
     /** A Kafka of the manifest: its topic, allowed types and how to connect. */
     record Kafka(String name, String topic, List<String> types, Properties kafka) {}
@@ -18,11 +18,11 @@ record Foundry(String pipeline, String processor, List<Kafka> inputs, Kafka outp
         var f = new ObjectMapper().readTree(path.toFile()).get("Foundry");
         var inputs = new ArrayList<Kafka>();
         for (var k : f.has("Inputs") ? f.get("Inputs") : List.of(f.get("Input"))) inputs.add(kafka(k));
-        return new Foundry(f.get("Pipeline").asText(), f.get("Processor").asText(), inputs, kafka(f.get("Output")));
+        return new Foundry(f.get("Pipeline").asText(), f.get("Operator").asText(), inputs, kafka(f.get("Output")));
     }
 
     String groupId() {
-        return pipeline + "." + processor;
+        return pipeline + "." + operator;
     }
 
     private static Kafka kafka(JsonNode k) {
@@ -31,7 +31,7 @@ record Foundry(String pipeline, String processor, List<Kafka> inputs, Kafka outp
         return new Kafka(k.get("Kafka").asText(), k.get("Topic").asText(), types, connection(k.get("ConnectionSettings")));
     }
 
-    // Credentials come from the environment, Secrets__<SecretRef>__Username/Password, like the .NET processors.
+    // Credentials come from the environment, Secrets__<SecretRef>__Username/Password, like the .NET operators.
     private static Properties connection(JsonNode settings) {
         var props = new Properties();
         props.setProperty("bootstrap.servers", settings.get("Brokers").asText());

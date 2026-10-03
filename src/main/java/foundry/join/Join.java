@@ -30,7 +30,7 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
  * they survive restarts and deploys.
  */
 public final class Join {
-    static final String TYPE_HEADER = "foundry-type"; // stamped by every processor on what it writes
+    static final String TYPE_HEADER = "foundry-type"; // stamped by every operator on what it writes
     static final String PACKET = "Packets", DECODE = "DecodeEnrichment", ISP = "IspEnrichment", OUT = "EnrichedPackets";
     static final Duration GAP = Duration.ofSeconds(10);
     static final ObjectMapper JSON = new ObjectMapper();
@@ -83,7 +83,7 @@ public final class Join {
                 var guid = JSON.readTree(record.value()).path("guid").asText("");
                 if (type != null && !guid.isEmpty()) out.collect(new Piece(guid, type, new String(record.value(), StandardCharsets.UTF_8)));
             } catch (java.io.IOException e) {
-                // Not JSON: skip it, like the .NET processors skip bad messages.
+                // Not JSON: skip it, like the .NET operators skip bad messages.
             }
         }
 
